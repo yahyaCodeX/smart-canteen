@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Canteen AI — Intelligent Pre-Order & Queue Platform</title>
+  <meta name="description" content="AI-Powered Smart Canteen Pre-Order & Kitchen Queue System with Dynamic EPT and Live Prioritization.">
+  <link rel="stylesheet" href="/css/styles.css">
+  <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+
+  <!-- ───────────────────────────────────────────────────────────────────────────── -->
+  <!-- Top Bar / Header -->
+  <!-- ───────────────────────────────────────────────────────────────────────────── -->
+  <header>
+    <div class="header-container">
+      <div class="logo-group">
+        <div class="logo-icon">⚡</div>
+        <div>
+          <h1 class="logo-text">Smart Canteen AI</h1>
+          <div style="font-size: 0.75rem; color: var(--text-secondary);">Intelligent Pre-Order & Queue Engine</div>
+        </div>
+      </div>
+
+      <!-- Demo Role Quick Switcher -->
+      <div class="role-switcher">
+        <span class="role-badge" id="current-role-badge">CUSTOMER</span>
+        <select id="role-select" class="role-select" onchange="switchRole(this.value)">
+          <option value="customer">Student (customer@demo.com)</option>
+          <option value="staff">Kitchen Staff (staff@demo.com)</option>
+          <option value="manager">Canteen Manager (manager@demo.com)</option>
+          <option value="admin">System Admin (admin@demo.com)</option>
+        </select>
+      </div>
+    </div>
+  </header>
+
+  <!-- ───────────────────────────────────────────────────────────────────────────── -->
+  <!-- Navigation Tabs -->
+  <!-- ───────────────────────────────────────────────────────────────────────────── -->
+  <div class="nav-tabs">
+    <button class="tab-btn active" onclick="showTab('menu-tab')">
+      🍔 Menu & Pre-Order
+    </button>
+    <button class="tab-btn" onclick="showTab('tokens-tab')">
+      🎟️ My Digital Tokens <span class="tab-badge" id="active-tokens-count">0</span>
+    </button>
+    <button class="tab-btn" onclick="showTab('queue-tab')">
+      🍳 Kitchen Queue Board
+    </button>
+    <button class="tab-btn" onclick="showTab('intel-tab')">
+      🧠 Smart Intelligence & Alerts <span class="tab-badge" id="alerts-count" style="background: var(--accent-amber); display:none;">0</span>
+    </button>
+    <button class="tab-btn" onclick="showTab('analytics-tab')" id="nav-analytics-btn">
+      📊 Management Analytics
+    </button>
+    <button class="tab-btn" onclick="showTab('admin-tab')">
+      ⚙️ Menu Admin
+    </button>
+  </div>
+
+  <!-- ───────────────────────────────────────────────────────────────────────────── -->
+  <!-- Main Content Area -->
+  <!-- ───────────────────────────────────────────────────────────────────────────── -->
+  <main>
+
+    <!-- TAB 1: Menu & Cart / Pre-Order -->
+    <section id="menu-tab" class="tab-content active">
+      <div class="menu-layout">
+        <!-- Left: Menu Grid -->
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <h2>Today's Canteen Menu</h2>
+            <div style="font-size: 0.85rem; color: var(--text-secondary);" id="menu-count-text">Loading items...</div>
+          </div>
+          
+          <!-- AI Recommendations (Customer) -->
+          <div id="ai-recommendations-container" style="display: none; background: rgba(139, 92, 246, 0.1); border: 1px solid var(--accent-purple); border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem;">
+            <h3 style="color: var(--accent-purple); margin-bottom: 0.5rem; display:flex; align-items:center; gap:0.5rem;">✨ Smart AI Recommendations <button onclick="loadAIRecommendations()" style="background:none;border:none;color:white;cursor:pointer;font-size:0.8rem;">🔄</button></h3>
+            <div id="ai-recommendations-list" style="display: flex; flex-direction: column; gap: 0.5rem;">Loading AI recommendations...</div>
+          </div>
+
+          <!-- Category Filter Bar -->
+          <div class="category-bar" id="category-bar">
+            <button class="cat-btn active" onclick="filterCategory('ALL')">All Items</button>
+            <button class="cat-btn" onclick="filterCategory('Main Course')">Main Course</button>
+            <button class="cat-btn" onclick="filterCategory('Snacks')">Snacks</button>
+            <button class="cat-btn" onclick="filterCategory('Beverages')">Beverages</button>
+            <button class="cat-btn" onclick="filterCategory('Combos')">Combos</button>
+          </div>
+
+          <!-- Food Cards Grid -->
+          <div class="food-grid" id="food-grid">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+
+        <!-- Right: Cart & Pre-Order Panel -->
+        <div>
+          <div class="glass-panel cart-panel">
+            <div class="cart-title">
+              <span>🛒 Your Order Cart</span>
+              <button onclick="clearCart()" style="background:none; border:none; color: var(--accent-rose); cursor:pointer; font-size: 0.8rem;">Clear</button>
+            </div>
+
+            <!-- Cart Items List -->
+            <div class="cart-items" id="cart-items">
+              <div style="text-align: center; color: var(--text-muted); margin-top: 3rem;">
+                Your cart is empty.<br>Select items from the menu to start.
+              </div>
+            </div>
+
+            <!-- Pre-Order Time Scheduler -->
+            <div class="preorder-box">
+              <label style="font-size: 0.85rem; font-weight: 600; display: block; margin-bottom: 0.35rem;">
+                ⏰ Pickup Time Option:
+              </label>
+              <select id="pickup-type" onchange="togglePickupTime(this.value)" style="width:100%; padding:0.5rem; background:rgba(17,24,39,0.8); border:1px solid var(--border-color); color:white; border-radius:6px;">
+                <option value="ASAP">Prepare ASAP (Immediate Queue)</option>
+                <option value="SCHEDULED">Schedule Pickup Time (e.g. Lunch Break)</option>
+              </select>
+
+              <div id="scheduled-time-input" style="display: none; margin-top: 0.5rem;">
+                <label style="font-size: 0.75rem; color: var(--text-secondary);">Select Pickup Time today:</label>
+                <input type="time" id="pickup-time-val" onchange="recalculateEPT()" style="width:100%; padding:0.4rem; background:rgba(17,24,39,0.9); border:1px solid var(--border-color); color:white; border-radius:4px; margin-top:0.25rem;">
+              </div>
+            </div>
+
+            <!-- Live Estimated Prep Time (EPT) Badge -->
+            <div class="ept-live-badge" id="ept-badge">
+              <span>⏱️ Estimated Prep Time:</span>
+              <strong id="ept-value">0 Mins</strong>
+            </div>
+
+            <!-- Order Total & Checkout Button -->
+            <div style="margin-top: 1rem; border-top: 1px solid var(--border-color); padding-top: 1rem;">
+              <div style="display: flex; justify-content: space-between; font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem;">
+                <span>Total Amount:</span>
+                <span id="cart-total-price" style="color: var(--accent-emerald);">₹0.00</span>
+              </div>
+              <button class="checkout-btn" onclick="submitOrder()">
+                ⚡ Confirm Order & Get Digital Token
+              </button>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: Digital Tokens & Order Tracker -->
+    <section id="tokens-tab" class="tab-content">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+        <div>
+          <h2>My Active Digital Tokens</h2>
+          <p style="color: var(--text-secondary); font-size: 0.9rem;">Track your pre-orders step-by-step from kitchen prep to pickup.</p>
+        </div>
+        <button class="tab-btn" onclick="loadUserOrders()" style="font-size: 0.85rem;">🔄 Refresh Status</button>
+      </div>
+
+      <div class="tokens-grid" id="tokens-grid">
+        <!-- Tokens rendered dynamically -->
+      </div>
+    </section>
+
+    <!-- TAB 3: Kitchen Queue Board (Staff View) -->
+    <section id="queue-tab" class="tab-content">
+      <div class="queue-header-bar">
+        <div>
+          <h2>🍳 Live Kitchen Queue Board</h2>
+          <p style="color: var(--text-secondary); font-size: 0.9rem;">Smart priority sorting engine: Delayed & urgent orders stay at top.</p>
+        </div>
+        <div style="display:flex; gap:1rem; align-items:center;">
+          <!-- Manual Token Verification -->
+          <div style="background: rgba(31,41,55,0.6); padding:0.4rem 0.6rem; border-radius:6px; border:1px solid var(--border-color); display:flex; gap:0.5rem;">
+            <input type="text" id="verify-token-input" placeholder="e.g. C-023" style="background:transparent; border:none; color:white; width:100px; outline:none;" autocomplete="off">
+            <button onclick="verifyTokenCode()" style="background:var(--accent-purple); color:white; border:none; border-radius:4px; padding:0.2rem 0.6rem; cursor:pointer; font-size:0.8rem; font-weight:bold;">Verify & Collect</button>
+          </div>
+          <button class="tab-btn" onclick="loadKitchenQueue()">🔄 Refresh Queue</button>
+        </div>
+      </div>
+
+      <div class="queue-columns">
+        <!-- Active Priority Queue -->
+        <div class="glass-panel">
+          <div class="queue-col-title">
+            <span>🔥 Active Priority Queue</span>
+            <span class="status-pill status-PREPARING" id="active-queue-count">0 Orders</span>
+          </div>
+          <div id="active-queue-list">
+            <!-- Active queue cards rendered dynamically -->
+          </div>
+        </div>
+
+        <!-- Scheduled Queue (Awaiting Window) -->
+        <div class="glass-panel">
+          <div class="queue-col-title">
+            <span>📅 Scheduled Orders (Future Pickup)</span>
+            <span class="status-pill status-PLACED" id="scheduled-queue-count">0 Orders</span>
+          </div>
+          <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">
+            Orders placed for later time windows automatically enter active queue when activation threshold arrives.
+          </p>
+          <div id="scheduled-queue-list">
+            <!-- Scheduled queue cards rendered dynamically -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: Smart Intelligence & Alerts -->
+    <section id="intel-tab" class="tab-content">
+      <div style="margin-bottom: 1.5rem;">
+        <h2>🧠 Smart Canteen Intelligence Engine</h2>
+        <p style="color: var(--text-secondary); font-size: 0.9rem;">Real-time anomaly detection, delay warnings, and kitchen analytics.</p>
+      </div>
+
+      <div class="intel-grid">
+        <!-- Live Alerts Feed -->
+        <div class="glass-panel">
+          <h3 style="margin-bottom: 1rem; display: flex; justify-content: space-between;">
+            <span>🚨 Real-Time Alerts Feed</span>
+            <button onclick="loadIntelligenceData()" style="background:none; border:none; color:var(--accent-cyan); cursor:pointer; font-size:0.8rem;">Refresh</button>
+          </h3>
+          <div id="alerts-feed-list">
+            <div style="color: var(--text-muted); text-align: center; padding: 2rem;">No active kitchen alerts detected. All operations normal.</div>
+          </div>
+        </div>
+
+        <!-- EPT Interactive Simulator & Demand Forecast -->
+        <div class="glass-panel">
+          <h3 style="margin-bottom: 1rem;">📈 Demand & Prep Time Forecast</h3>
+          <div id="intel-summary-card" style="background: rgba(31,41,55,0.5); border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 1rem; margin-bottom: 1.25rem;">
+            <div style="font-size: 0.85rem; color: var(--text-secondary);">Kitchen Workload Index</div>
+            <div style="font-size: 1.8rem; font-weight: 800; color: var(--accent-cyan);" id="intel-workload-val">NORMAL</div>
+            <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;" id="intel-active-count-str">Active Orders in Kitchen: 0</div>
+          </div>
+
+          <h4 style="margin-bottom: 0.5rem;">7-Day Canteen Demand Projection</h4>
+          <div id="demand-forecast-list" style="display: flex; flex-direction: column; gap: 0.5rem;">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 5: Management Analytics Dashboard -->
+    <section id="analytics-tab" class="tab-content">
+      <div style="margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center;">
+        <div>
+          <h2>📊 Management Analytics & Dashboard</h2>
+          <p style="color: var(--text-secondary); font-size: 0.9rem;">High-level overview of today's operations.</p>
+        </div>
+        <button class="tab-btn" onclick="loadAnalytics()">🔄 Refresh Analytics</button>
+      </div>
+
+      <!-- AI Management Insights -->
+      <div class="glass-panel" style="margin-bottom: 1.5rem; border: 1px solid var(--accent-purple);">
+        <h3 style="color: var(--accent-purple); margin-bottom: 1rem; display:flex; align-items:center; gap:0.5rem;">✨ Gemini AI Operational Insights <button onclick="loadAIInsights()" style="background:var(--accent-purple); color:white; border:none; border-radius:4px; padding:0.2rem 0.5rem; cursor:pointer; font-size:0.8rem;">Generate New Insights</button></h3>
+        <div id="ai-insights-content" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem;">
+          <div style="color: var(--text-muted);">Click 'Generate New Insights' to run the AI engine on live operational data.</div>
+        </div>
+      </div>
+
+      <div class="analytics-grid" id="analytics-grid" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 1.5rem;">
+        <!-- Filled dynamically via JS -->
+      </div>
+    </section>
+
+    <!-- TAB 6: Menu Admin -->
+    <section id="admin-tab" class="tab-content">
+      <div class="glass-panel" style="max-width: 600px; margin: 0 auto;">
+        <h2>⚙️ Menu & System Admin Panel</h2>
+        <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1.5rem;">Manage menu availability and reset seed data.</p>
+
+        <button class="add-btn" onclick="triggerSeedReset()" style="background: var(--accent-rose); margin-bottom: 1.5rem;">
+          ⚠️ Reset & Re-Seed Database (Demo Reset)
+        </button>
+
+        <h3>Add New Menu Item</h3>
+        <form id="add-item-form" onsubmit="handleAddItem(event)" style="display:flex; flex-direction:column; gap:0.75rem; margin-top:1rem;">
+          <input type="text" id="new-item-name" placeholder="Item Name (e.g. Cheese Pizza)" required style="padding:0.6rem; background:rgba(17,24,39,0.8); border:1px solid var(--border-color); color:white; border-radius:6px;">
+          <input type="text" id="new-item-cat" placeholder="Category (e.g. Main Course, Snacks)" required style="padding:0.6rem; background:rgba(17,24,39,0.8); border:1px solid var(--border-color); color:white; border-radius:6px;">
+          <input type="number" step="0.01" id="new-item-price" placeholder="Price (₹)" required style="padding:0.6rem; background:rgba(17,24,39,0.8); border:1px solid var(--border-color); color:white; border-radius:6px;">
+          <input type="number" id="new-item-prep" placeholder="Base Prep Time (minutes)" required style="padding:0.6rem; background:rgba(17,24,39,0.8); border:1px solid var(--border-color); color:white; border-radius:6px;">
+          <button type="submit" class="checkout-btn">Add Menu Item</button>
+        </form>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container"></div>
+
+  <!-- App Script -->
+  <script src="/js/app.js"></script>
+</body>
+</html>

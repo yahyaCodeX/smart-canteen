@@ -1,0 +1,64 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --bg-primary: #F8FAFC;
+    --bg-secondary: #FFFFFF;
+    --text-main: #0F172A;
+    --text-muted: #64748B;
+    --border: #E2E8F0;
+  }
+  
+  .dark {
+    --bg-primary: #0F172A;
+    --bg-secondary: #1E293B;
+    --text-main: #F8FAFC;
+    --text-muted: #94A3B8;
+    --border: #334155;
+  }
+
+  body {
+    @apply bg-primary text-text-main font-body antialiased selection:bg-accent-cyan selection:text-white transition-colors duration-200;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display tracking-tight;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply px-4 py-2 bg-accent-cyan text-primary font-medium rounded transition-all hover:bg-accent-neon hover:shadow-[0_0_15px_rgba(34,211,238,0.4)] active:scale-95 disabled:opacity-50 disabled:pointer-events-none;
+  }
+  
+  .btn-outline {
+    @apply px-4 py-2 border border-border text-text-main font-medium rounded transition-all hover:border-accent-cyan hover:text-accent-cyan active:scale-95 disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  .card {
+    @apply bg-secondary border border-border rounded-lg p-6 relative overflow-hidden;
+  }
+  
+  .input-field {
+    @apply w-full bg-primary border border-border rounded px-4 py-2 text-text-main focus:outline-none focus:border-accent-cyan focus:ring-1 focus:ring-accent-cyan transition-colors placeholder:text-text-muted;
+  }
+  
+  .status-badge {
+    @apply px-2 py-1 rounded text-xs font-medium uppercase tracking-wider border;
+  }
+}
+
+/* Subtle grid background to add depth */
+.bg-grid-pattern {
+  background-size: 40px 40px;
+  background-image: linear-gradient(to right, rgba(128, 128, 128, 0.05) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(128, 128, 128, 0.05) 1px, transparent 1px);
+}
+.dark .bg-grid-pattern {
+  background-image: linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+}
