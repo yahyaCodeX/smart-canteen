@@ -5,8 +5,10 @@
   "main": "src/server/index.js",
   "type": "module",
   "scripts": {
+    "postinstall": "cd frontend && npm install",
+    "build": "cd frontend && npm run build",
     "dev": "node --watch src/server/index.js",
-    "start": "node src/server/index.js",
+    "start": "node src/db/migrate.js && node src/server/index.js",
     "seed": "node src/db/seed.js",
     "test": "vitest run",
     "test:watch": "vitest watch",

@@ -13,6 +13,12 @@ import intelligenceRoutes from '../routes/intelligence.routes.js';
 import analyticsRoutes    from '../routes/analytics.routes.js';
 import { startScheduler } from '../services/scheduler.service.js';
 
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 dotenv.config();
 
 const app = express();
@@ -24,6 +30,7 @@ const PORT = process.env.PORT || 5000;
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
+app.use(express.static(path.join(__dirname, '../../frontend/dist')));
 app.use(express.static('public'));
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -47,9 +54,14 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// 404 handler
-app.use('*', (req, res) => {
+// 404 handler for API routes
+app.use('/api/*', (req, res) => {
   res.status(404).json({ success: false, error: `Route ${req.originalUrl} not found.` });
+});
+
+// Fallback to React app for all other routes
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../../frontend/dist/index.html'));
 });
 
 // Global error handler
