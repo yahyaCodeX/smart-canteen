@@ -3,6 +3,8 @@
   <h1>Smart Canteen OS</h1>
   <p>A modern, AI-powered food ordering and queue management system designed for university and corporate cafeterias.</p>
 
+  <h3>🚀 Live Demo: <a href="https://smart-canteen-production-16b1.up.railway.app/">https://smart-canteen-production-16b1.up.railway.app/</a></h3>
+
   <!-- Badges -->
   <p>
     <img src="https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" alt="React" />
@@ -113,32 +115,7 @@ npm run dev
 ```
 *Your application is now running on `http://localhost:5173` (Frontend) and `http://localhost:5000` (API).*
 
----
 
-## ☁️ Deployment (Railway)
-
-This project is configured as a monolithic service ready for immediate deployment on **[Railway](https://railway.app/)**. 
-
-1. **Push your code** to a GitHub repository.
-2. In Railway, click **New Project** ➔ **Provision PostgreSQL**.
-3. Once the database is ready, click **New** ➔ **GitHub Repo** and select this repository.
-4. Go to your Web service **Variables** and add:
-   - `DATABASE_URL` (Reference the Postgres variable Railway provides)
-   - `JWT_SECRET` (A strong random string)
-   - `GEMINI_API_KEY` (Your API Key)
-5. Under the Web service **Settings**, generate a domain.
-6. The service will automatically:
-   - Install dependencies.
-   - Build the React frontend.
-   - Run database migrations automatically.
-   - Start the Express server, serving both the API and the static React files on a unified port.
-
-### Seeding the Admin User
-Once deployed, you can create the default admin account:
-1. Run `node create_admin.js` locally while pointing your `.env` `DATABASE_URL` to your production Railway database.
-2. Or use Railway's built-in command palette / shell to run `node create_admin.js`.
-
----
 
 <div align="center">
   <p>Built for the Hackathon 🚀 • Elevating the Canteen Experience</p>
