@@ -4,7 +4,7 @@ import CustomerPortal from './views/CustomerPortal';
 import KitchenPortal from './views/KitchenPortal';
 import ManagerDashboard from './views/ManagerDashboard';
 import AdminDashboard from './views/AdminDashboard';
-import { LogOut, Sun, Moon } from 'lucide-react';
+import { LogOut, Sun, Moon, Utensils } from 'lucide-react';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -44,8 +44,10 @@ function App() {
       {/* Universal Navbar */}
       <nav className="sticky top-0 z-50 bg-secondary/80 backdrop-blur-md border-b border-border px-6 py-3 flex justify-between items-center shadow-lg">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded bg-accent-cyan flex items-center justify-center font-display font-bold text-primary">SC</div>
-          <span className="font-display font-bold tracking-tight hidden sm:block">Smart Canteen</span>
+          <div className="w-8 h-8 rounded-lg bg-accent-cyan/20 border border-accent-cyan/30 flex items-center justify-center text-accent-cyan shadow-[0_0_15px_rgba(0,242,254,0.2)]">
+            <Utensils size={18} />
+          </div>
+          <span className="font-display font-bold tracking-tight hidden sm:block text-text-main">Smart Canteen</span>
         </div>
         
         <div className="flex items-center gap-4">
