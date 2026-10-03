@@ -173,10 +173,10 @@ export async function placeOrder(req, res) {
     // ── Build response payload ─────────────────────────────────────────────
     const response = {
       success: true,
-      message: `Order placed! Your token is ${tokenNumber}. Estimated ready in ${eptMinutes} min.`,
+      message: `Order placed! Your token is ${newOrder.token_number}. Estimated ready in ${eptMinutes} min.`,
       order: {
         order_id:             newOrder.order_id,
-        token_number:         tokenNumber,
+        token_number:         newOrder.token_number,
         order_status:         'PLACED',
         total_amount:         parseFloat(totalAmount.toFixed(2)),
         estimated_ready_time: estimatedReadyAt,
