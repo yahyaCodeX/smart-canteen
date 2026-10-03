@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, TrendingUp, Clock, AlertTriangle, PackageOpen, Users, DollarSign, Settings, Coffee, Plus, Trash2 } from 'lucide-react';
+import { LayoutDashboard, TrendingUp, Clock, AlertTriangle, PackageOpen, Users, Banknote, Settings, Coffee, Plus, Trash2 } from 'lucide-react';
 import api from '../utils/api';
 
 export default function ManagerDashboard() {
@@ -151,7 +151,7 @@ export default function ManagerDashboard() {
       
       {/* KPI Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard title="Total Revenue" value={`PKR ${stats.total_revenue || 0}`} icon={DollarSign} colorClass="#22D3EE" />
+        <StatCard title="Total Revenue" value={`PKR ${stats.total_revenue || 0}`} icon={Banknote} colorClass="#22D3EE" />
         <StatCard title="Completed Orders" value={stats.completed_orders || 0} icon={CheckCircle} colorClass="#4ADE80" />
         <StatCard title="Active Queue" value={stats.active_orders || 0} icon={Users} colorClass="#06B6D4" />
         <StatCard title="Avg Prep Time" value={`${stats.avg_preparation_time || 0}m`} icon={Clock} colorClass="#A855F7" />

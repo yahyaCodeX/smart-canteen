@@ -8,7 +8,7 @@ import {
 } from '../services/intelligence.service.js';
 import { computeBaseEPT, CATEGORY_MULTIPLIERS } from '../services/ept.service.js';
 import pool from '../db/pool.js';
-import { generateAIInsights, getCustomerRecommendations } from '../services/ai.service.js';
+import { generateAIInsights, getCustomerRecommendations, chatWithCanteenAI } from '../services/ai.service.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GET /api/intelligence/alerts
@@ -271,5 +271,24 @@ export async function getMenuRecommendations(req, res) {
   } catch (err) {
     console.error('getMenuRecommendations error:', err);
     return res.status(500).json({ success: false, error: 'Failed to fetch recommendations.' });
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// POST /api/intelligence/chat (All)
+// ─────────────────────────────────────────────────────────────────────────────
+export async function chat(req, res) {
+  try {
+    const { message } = req.body;
+    if (!message) return res.status(400).json({ success: false, error: 'Message required' });
+    
+    const result = await chatWithCanteenAI(message);
+    if (!result.success) {
+      return res.status(503).json(result);
+    }
+    return res.json(result);
+  } catch (err) {
+    console.error('chat error:', err);
+    return res.status(500).json({ success: false, error: 'Chat failed.' });
   }
 }

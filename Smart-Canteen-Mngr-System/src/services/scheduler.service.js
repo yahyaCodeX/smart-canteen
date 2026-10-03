@@ -128,15 +128,9 @@ async function autoMarkNotCollected() {
     SET order_status = 'NOT_COLLECTED', updated_at = NOW()
     WHERE order_status = 'READY'
       AND is_collected = FALSE
-      AND (
-        -- Has a pickup_time: mark not-collected >20 min after pickup_time
-        (pickup_time IS NOT NULL AND EXTRACT(EPOCH FROM (NOW() - pickup_time)) / 60 > $1)
-        OR
-        -- No pickup_time: mark not-collected >30 min after being marked READY
-        (pickup_time IS NULL AND EXTRACT(EPOCH FROM (NOW() - updated_at)) / 60 > 30)
-      )
+      AND EXTRACT(EPOCH FROM (NOW() - updated_at)) / 60 > 30
     RETURNING order_id, token_number
-  `, [NOT_COLLECTED_WINDOW_MIN]);
+  `);
 
   if (rows.length > 0) {
     const tokens = rows.map((r) => r.token_number);

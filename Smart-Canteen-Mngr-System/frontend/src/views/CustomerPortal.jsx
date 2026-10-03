@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ShoppingCart, Plus, Minus, Clock, MapPin, Search } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Clock, MapPin, Search, MessageSquare, X, Send } from 'lucide-react';
+import { QRCodeSVG } from 'qrcode.react';
 import api from '../utils/api';
 
 export default function CustomerPortal() {
@@ -14,6 +15,12 @@ export default function CustomerPortal() {
   const [sortBy, setSortBy] = useState('none');
   const [pickupSlot, setPickupSlot] = useState('');
   const [pickupSlots, setPickupSlots] = useState([]);
+
+  // Chat Bot State
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState([{ text: 'Hi! I am the Smart Canteen AI. How can I help you today?', isBot: true }]);
+  const [chatInput, setChatInput] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
 
   useEffect(() => {
     loadMenu();
@@ -41,8 +48,8 @@ export default function CustomerPortal() {
       const res = await api.get('/orders/my');
       if (res.data.success) {
         const allOrders = res.data.orders;
-        setActiveOrders(allOrders.filter(o => !['COMPLETED', 'CANCELLED', 'REJECTED'].includes(o.order_status)));
-        setOrderHistory(allOrders.filter(o => ['COMPLETED', 'CANCELLED', 'REJECTED'].includes(o.order_status)));
+        setActiveOrders(allOrders.filter(o => !['COLLECTED', 'COMPLETED', 'CANCELLED', 'REJECTED'].includes(o.order_status)));
+        setOrderHistory(allOrders.filter(o => ['COLLECTED', 'COMPLETED', 'CANCELLED', 'REJECTED'].includes(o.order_status)));
       }
     } catch (err) {
       console.error(err);
@@ -133,6 +140,23 @@ export default function CustomerPortal() {
     }
   };
 
+  const sendMessage = async () => {
+    if (!chatInput.trim()) return;
+    const msg = chatInput;
+    setChatMessages(prev => [...prev, { text: msg, isBot: false }]);
+    setChatInput('');
+    setIsTyping(true);
+    try {
+      const res = await api.post('/intelligence/chat', { message: msg });
+      if (res.data.success) {
+        setChatMessages(prev => [...prev, { text: res.data.reply, isBot: true }]);
+      }
+    } catch (err) {
+      setChatMessages(prev => [...prev, { text: "Sorry, I am having trouble connecting right now.", isBot: true }]);
+    }
+    setIsTyping(false);
+  };
+
   const reorder = (orderItems) => {
     // orderItems looks like: [{ item_name: 'Burger', quantity: 2, price: 500, item_id: 'if available' }, ...]
     // We need to match with menuItems to get the actual item objects
@@ -181,7 +205,7 @@ export default function CustomerPortal() {
   }, [menuItems, activeCategory, searchQuery, sortBy]);
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6 p-6 max-w-7xl mx-auto min-h-screen">
+    <div className="flex flex-col lg:flex-row gap-6 p-6 max-w-7xl mx-auto min-h-screen bg-grid-pattern relative">
       <div className="flex-1 space-y-6">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
@@ -281,9 +305,14 @@ export default function CustomerPortal() {
               {activeOrders.map(order => (
                 <div key={order.order_id} className={`card border-l-4 ${getStatusColor(order.order_status).split(' ')[0].replace('text-', 'border-')}`}>
                   <div className="flex justify-between items-center mb-4">
-                    <div>
-                      <div className="text-xs text-text-muted uppercase tracking-wider mb-1">Digital Token</div>
-                      <div className="text-3xl font-display font-bold tracking-tight text-text-main">{order.token_number}</div>
+                    <div className="flex gap-4 items-center">
+                      <div className="bg-white p-1.5 rounded-lg shadow-sm border border-gray-200/50">
+                        <QRCodeSVG value={order.token_number} size={56} level="H" />
+                      </div>
+                      <div>
+                        <div className="text-xs text-text-muted uppercase tracking-wider mb-1">Digital Token</div>
+                        <div className="text-3xl font-display font-bold tracking-tight text-text-main">{order.token_number}</div>
+                      </div>
                     </div>
                     <div className="text-right">
                       <div className={`status-badge ${getStatusColor(order.order_status)} bg-secondary`}>
@@ -336,7 +365,7 @@ export default function CustomerPortal() {
                   <div>
                     <div className="flex items-center gap-3 mb-1">
                       <span className="font-bold text-text-main">Token: {order.token_number}</span>
-                      <span className={`text-xs px-2 py-0.5 rounded ${order.order_status === 'COMPLETED' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
+                      <span className={`text-xs px-2 py-0.5 rounded ${['COMPLETED', 'COLLECTED'].includes(order.order_status) ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'}`}>
                         {order.order_status}
                       </span>
                     </div>
@@ -432,6 +461,55 @@ export default function CustomerPortal() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* AI Chat Bot */}
+      <div className="fixed bottom-6 right-6 z-50">
+        {chatOpen && (
+          <div className="bg-secondary border border-border shadow-2xl rounded-2xl w-80 mb-4 overflow-hidden flex flex-col h-[400px]">
+            <div className="bg-accent-cyan p-3 text-white font-semibold flex justify-between items-center">
+              <span className="flex items-center gap-2"><MessageSquare size={16}/> Smart Canteen AI</span>
+              <button onClick={() => setChatOpen(false)} className="hover:text-white/80 transition-colors"><X size={18}/></button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar bg-primary/30">
+              {chatMessages.map((msg, i) => (
+                <div key={i} className={`flex ${msg.isBot ? 'justify-start' : 'justify-end'}`}>
+                  <div className={`max-w-[85%] p-2.5 text-sm ${msg.isBot ? 'bg-secondary border border-border text-text-main rounded-2xl rounded-tl-sm shadow-sm' : 'bg-accent-cyan text-white rounded-2xl rounded-tr-sm shadow-sm'}`}>
+                    {msg.text}
+                  </div>
+                </div>
+              ))}
+              {isTyping && (
+                <div className="flex justify-start">
+                  <div className="bg-secondary border border-border p-2.5 rounded-2xl rounded-tl-sm flex gap-1 items-center h-9">
+                    <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"></span>
+                    <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.15s'}}></span>
+                    <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.3s'}}></span>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="p-3 bg-secondary border-t border-border flex gap-2">
+              <input 
+                type="text" 
+                className="input-field py-1.5 text-sm flex-1"
+                placeholder="Ask a question..."
+                value={chatInput}
+                onChange={e => setChatInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && sendMessage()}
+              />
+              <button onClick={sendMessage} disabled={isTyping || !chatInput.trim()} className="bg-accent-cyan text-white p-2 rounded hover:bg-accent-neon transition-colors disabled:opacity-50">
+                <Send size={16} />
+              </button>
+            </div>
+          </div>
+        )}
+        <button 
+          onClick={() => setChatOpen(!chatOpen)}
+          className={`flex items-center justify-center w-14 h-14 rounded-full shadow-lg transition-transform hover:scale-105 active:scale-95 ml-auto ${chatOpen ? 'bg-gray-200 text-gray-700' : 'bg-accent-cyan text-white shadow-[0_0_15px_rgba(34,211,238,0.5)]'}`}
+        >
+          {chatOpen ? <X size={24} /> : <MessageSquare size={24} />}
+        </button>
       </div>
     </div>
   );

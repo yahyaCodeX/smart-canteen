@@ -170,3 +170,28 @@ export async function getCustomerRecommendations(customerId = null) {
     return { success: false, error: 'AI Recommendation failed' };
   }
 }
+
+/**
+ * Handles simple customer chat messages using Gemini
+ */
+export async function chatWithCanteenAI(message) {
+  const client = getAIClient();
+  if (!client) {
+    // Hackathon Fallback if no key is present
+    return { success: true, reply: "Hi! This is a mock response because the Gemini API key is not configured. But I'm here to help!" };
+  }
+
+  try {
+    const model = client.getGenerativeModel({ model: 'gemini-3.8-flash' });
+    const prompt = `You are a helpful, friendly, and concise AI assistant for a college canteen named "Smart Canteen". 
+    You answer questions about the canteen, food, or general help. Keep your answers brief (1-3 sentences maximum).
+    User asks: "${message}"`;
+    
+    const result = await model.generateContent(prompt);
+    return { success: true, reply: result.response.text().trim() };
+  } catch (err) {
+    console.error('AI Chat Error:', err);
+    // Hackathon fallback if API limits reached
+    return { success: true, reply: "I'm currently receiving too many requests! But normally, I would give you a smart answer right now." };
+  }
+}

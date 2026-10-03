@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { LogIn, UserPlus, AlertCircle } from 'lucide-react';
+import { LogIn, UserPlus, AlertCircle, Info } from 'lucide-react';
 import api from '../utils/api';
 import logo from '../assets/logo.jpeg';
 
@@ -7,6 +7,7 @@ export default function AuthView({ onLogin }) {
   const [isLogin, setIsLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [showJudgeGuide, setShowJudgeGuide] = useState(false);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -58,6 +59,17 @@ export default function AuthView({ onLogin }) {
         
         {/* Shine effect on card */}
         <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-accent-cyan/50 to-transparent"></div>
+
+        {/* Judge Guide Button */}
+        <button 
+          type="button"
+          onClick={() => setShowJudgeGuide(true)}
+          className="absolute top-4 right-4 text-accent-cyan hover:text-accent-neon transition-colors flex flex-col items-center gap-1 group z-20"
+          title="Judge's Guide"
+        >
+          <Info size={24} className="group-hover:scale-110 transition-transform drop-shadow-[0_0_8px_rgba(34,211,238,0.5)]"/>
+          <span className="text-[9px] font-bold uppercase tracking-wider opacity-80 group-hover:opacity-100">Guide</span>
+        </button>
 
         <div className="text-center mb-8">
           <div className="flex justify-center mb-6">
@@ -179,6 +191,27 @@ export default function AuthView({ onLogin }) {
           </p>
         </div>
       </div>
+
+      {/* Judge's Guide Modal */}
+      {showJudgeGuide && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in" onClick={() => setShowJudgeGuide(false)}>
+          <div className="bg-secondary border border-border rounded-xl w-full max-w-lg overflow-hidden shadow-2xl p-6 relative" onClick={e => e.stopPropagation()}>
+            <h2 className="text-xl font-bold text-accent-cyan mb-4 flex items-center gap-2"><Info size={24}/> Hackathon Judge's Guide</h2>
+            <div className="space-y-4 text-sm text-text-main">
+              <p>Welcome! Here is how to test the full system effectively:</p>
+              <ul className="list-disc pl-5 space-y-2">
+                <li><b>Customers:</b> Create an account as "Student/Customer" to place pre-orders, view dynamic AI wait times, and talk to the Gemini AI Chatbot.</li>
+                <li><b>Kitchen Staff:</b> Create an account as "Kitchen Staff" to view the live kitchen queue and manage incoming orders.</li>
+                <li><b>Managers:</b> Create an account as "Manager" to view the Analytics Dashboard and generate Gemini Demand Insights.</li>
+              </ul>
+              <div className="bg-accent-cyan/10 border border-accent-cyan/30 p-3 rounded-lg text-accent-cyan mt-4">
+                <p className="font-semibold italic">Pro Tip: Open multiple browser tabs or incognito windows to log in as different roles simultaneously. You'll see the system sync in real-time!</p>
+              </div>
+            </div>
+            <button onClick={() => setShowJudgeGuide(false)} className="mt-6 w-full btn-primary py-2 font-bold">Got it, let's go!</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

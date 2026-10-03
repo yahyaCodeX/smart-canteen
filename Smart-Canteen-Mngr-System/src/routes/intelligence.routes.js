@@ -8,6 +8,7 @@ import {
   getKitchenStatus,
   getAiInsights,
   getMenuRecommendations,
+  chat,
 } from '../controllers/intelligence.controller.js';
 import { verifyToken } from '../middleware/verifyToken.js';
 import { checkRole }   from '../middleware/checkRole.js';
@@ -58,6 +59,12 @@ router.get(
   '/recommendations',
   checkRole(['CUSTOMER', 'ADMIN']),
   getMenuRecommendations
+);
+
+// POST /api/intelligence/chat — Smart AI Chat Assistant
+router.post(
+  '/chat',
+  chat
 );
 
 export default router;

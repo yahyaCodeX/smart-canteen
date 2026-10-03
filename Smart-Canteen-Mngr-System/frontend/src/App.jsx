@@ -8,8 +8,16 @@ import { LogOut, Sun, Moon, Utensils } from 'lucide-react';
 
 function App() {
   const [user, setUser] = useState(null);
-
   const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
+  const [isScrolled, setIsScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 10);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   useEffect(() => {
     if (theme === 'dark') {
@@ -42,12 +50,12 @@ function App() {
   return (
     <div className="min-h-screen bg-primary">
       {/* Universal Navbar */}
-      <nav className="sticky top-0 z-50 bg-secondary/80 backdrop-blur-md border-b border-border px-6 py-3 flex justify-between items-center shadow-lg">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-accent-cyan/20 border border-accent-cyan/30 flex items-center justify-center text-accent-cyan shadow-[0_0_15px_rgba(0,242,254,0.2)]">
+      <nav className={`sticky top-0 z-50 transition-all duration-500 ease-in-out ${isScrolled ? 'bg-secondary/95 backdrop-blur-xl border-b border-border py-2 shadow-lg' : 'bg-secondary/50 backdrop-blur-sm border-b-transparent py-4 shadow-none'} px-6 flex justify-between items-center`}>
+        <div className="flex items-center gap-3 group cursor-pointer">
+          <div className="w-8 h-8 rounded-lg bg-accent-cyan/20 border border-accent-cyan/30 flex items-center justify-center text-accent-cyan shadow-[0_0_15px_rgba(0,242,254,0.2)] transition-transform duration-500 group-hover:rotate-12 group-hover:scale-110">
             <Utensils size={18} />
           </div>
-          <span className="font-display font-bold tracking-tight hidden sm:block text-text-main">Smart Canteen</span>
+          <span className={`font-display font-bold hidden sm:block text-text-main transition-all duration-500 transform origin-left bg-clip-text text-transparent bg-gradient-to-r from-accent-cyan to-accent-neon ${isScrolled ? 'text-lg tracking-normal scale-95' : 'text-xl tracking-widest scale-100'}`}>Smart Canteen</span>
         </div>
         
         <div className="flex items-center gap-4">

@@ -22,24 +22,24 @@ export async function getDashboardStats(req, res) {
       active_orders: 0,
       preparing: 0,
       ready: 0,
-      completed: 0,
-      cancelled: 0,
-      total_sales: 0,
-      delayed: 0
+      completed_orders: 0,
+      cancelled_orders: 0,
+      total_revenue: 0,
+      delayed_orders: 0
     };
 
     statusRows.forEach(r => {
       const cnt = parseInt(r.count, 10);
       const amt = parseFloat(r.amount) || 0;
       stats.total_orders += cnt;
-      if (r.order_status === 'COMPLETED') {
-        stats.completed = cnt;
-        stats.total_sales += amt;
+      if (r.order_status === 'COMPLETED' || r.order_status === 'COLLECTED') {
+        stats.completed_orders += cnt; // changed to += to sum both if they both exist
+        stats.total_revenue += amt;
       }
-      if (r.order_status === 'CANCELLED') stats.cancelled = cnt;
+      if (r.order_status === 'CANCELLED') stats.cancelled_orders = cnt;
       if (r.order_status === 'PREPARING') stats.preparing = cnt;
       if (r.order_status === 'READY') stats.ready = cnt;
-      if (r.order_status === 'DELAYED') stats.delayed = cnt;
+      if (r.order_status === 'DELAYED') stats.delayed_orders = cnt;
       
       if (['PLACED', 'ACCEPTED', 'PREPARING', 'READY', 'DELAYED'].includes(r.order_status)) {
         stats.active_orders += cnt;
@@ -47,7 +47,7 @@ export async function getDashboardStats(req, res) {
     });
 
     stats.delayed_percentage = stats.total_orders > 0 
-      ? ((stats.delayed / stats.total_orders) * 100).toFixed(1) + '%' 
+      ? ((stats.delayed_orders / stats.total_orders) * 100).toFixed(1) + '%' 
       : '0%';
 
     // 2. Most Ordered & Least Ordered Food (All time or today)
@@ -76,8 +76,8 @@ export async function getDashboardStats(req, res) {
     `);
     
     stats.avg_preparation_time = timeRows[0].avg_mins 
-      ? Math.round(parseFloat(timeRows[0].avg_mins)) + ' Minutes'
-      : 'N/A';
+      ? Math.round(parseFloat(timeRows[0].avg_mins))
+      : 0;
 
     // 4. Peak Ordering Time (Hourly grouping today)
     const { rows: peakRows } = await pool.query(`
