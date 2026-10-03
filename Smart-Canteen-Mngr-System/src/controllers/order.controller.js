@@ -134,22 +134,18 @@ export async function placeOrder(req, res) {
 
     const pickupTime = req.body.scheduled_pickup_time || null;
 
-    // ── Step 10: Generate unique token ──────────────────────────────────────
-    const tokenNumber = await generateOrderToken(client);
-
     // ── Step 10: Calculate EPT ─────────────────────────────────────────────
     const { eptMinutes, estimatedReadyAt } = await calculateEPT(orderLines, client);
 
     // ── Step 10: Create order record ────────────────────────────────────────
     const { rows: orderRows } = await client.query(
       `INSERT INTO orders
-         (customer_id, token_number, idempotency_key,
+         (customer_id, idempotency_key,
           total_amount, pickup_time, estimated_ready_time, order_status, payment_status)
-       VALUES ($1, $2, $3, $4, $5, $6, 'PLACED', 'PENDING')
+       VALUES ($1, $2, $3, $4, $5, 'PLACED', 'PENDING')
        RETURNING *`,
       [
         customerId,
-        tokenNumber,
         req.idempotencyKey,
         totalAmount.toFixed(2),
         pickupTime,
