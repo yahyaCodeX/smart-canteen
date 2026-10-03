@@ -100,9 +100,10 @@ export default function CustomerPortal() {
         const timeString = pickupSlot.split(' - ')[0]; // e.g. "01:30 PM"
         const [time, modifier] = timeString.split(' ');
         let [hours, minutes] = time.split(':');
-        if (hours === '12') hours = '00';
-        if (modifier === 'PM') hours = parseInt(hours, 10) + 12;
-        scheduledTime.setHours(hours, minutes, 0, 0);
+        let h = parseInt(hours, 10);
+        if (modifier === 'PM' && h < 12) h += 12;
+        if (modifier === 'AM' && h === 12) h = 0;
+        scheduledTime.setHours(h, parseInt(minutes, 10), 0, 0);
       }
 
       const res = await api.post('/orders', 
