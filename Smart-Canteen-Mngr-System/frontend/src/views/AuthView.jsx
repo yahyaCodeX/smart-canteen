@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { LogIn, UserPlus, AlertCircle, Info } from 'lucide-react';
-import api from '../utils/api';
+import supabase from '../utils/supabase';
 import logo from '../assets/logo.jpeg';
 
 export default function AuthView({ onLogin }) {
@@ -26,26 +26,57 @@ export default function AuthView({ onLogin }) {
     setError('');
     
     try {
-      const endpoint = isLogin ? '/auth/login' : '/auth/register';
-      const payload = isLogin 
-        ? { email: formData.email, password: formData.password }
-        : { name: formData.name, email: formData.email, password: formData.password, role: formData.role };
-        
-      const res = await api.post(endpoint, payload);
-      
-      if (res.data.success) {
-        localStorage.setItem('token', res.data.token);
-        localStorage.setItem('user', JSON.stringify(res.data.user));
-        onLogin(res.data.user);
+      if (isLogin) {
+        // ── LOGIN ────────────────────────────────────────────────────────────
+        const { data, error: authError } = await supabase.auth.signInWithPassword({
+          email: formData.email,
+          password: formData.password,
+        });
+        if (authError) throw authError;
+
+        // Fetch profile row which holds the user's name and role
+        const { data: profile, error: profileError } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', data.user.id)
+          .single();
+        if (profileError) throw profileError;
+
+        const userObj = { ...profile, user_id: profile.id };
+        localStorage.setItem('user', JSON.stringify(userObj));
+        onLogin(userObj);
+
       } else {
-        setError(res.data.error || 'Authentication failed');
+        // ── REGISTER ─────────────────────────────────────────────────────────
+        const { data, error: authError } = await supabase.auth.signUp({
+          email: formData.email,
+          password: formData.password,
+          options: {
+            data: { name: formData.name, role: formData.role },
+          },
+        });
+        if (authError) throw authError;
+
+        // Insert profile row immediately (for instant login without email confirm)
+        const { error: insertError } = await supabase.from('users').upsert({
+          id: data.user.id,
+          email: formData.email,
+          name: formData.name,
+          role: formData.role,
+        });
+        if (insertError) throw insertError;
+
+        const userObj = { id: data.user.id, user_id: data.user.id, email: formData.email, name: formData.name, role: formData.role };
+        localStorage.setItem('user', JSON.stringify(userObj));
+        onLogin(userObj);
       }
     } catch (err) {
-      setError(err.response?.data?.error || 'Server error. Is the backend running?');
+      setError(err.message || 'Authentication failed. Please try again.');
     } finally {
       setLoading(false);
     }
   };
+
 
   return (
     <div className="min-h-screen bg-primary flex items-center justify-center p-4 bg-grid-pattern relative overflow-hidden">

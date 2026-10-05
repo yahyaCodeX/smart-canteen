@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Shield, Settings, Activity, ListTree, Database, XCircle } from 'lucide-react';
-import api from '../utils/api';
+import supabase from '../utils/supabase';
 
 export default function AdminDashboard() {
   const [activeModal, setActiveModal] = useState(null);
@@ -11,95 +11,90 @@ export default function AdminDashboard() {
 
   const loadUsers = async () => {
     try {
-      const res = await api.get('/auth/users');
-      if (res.data.success) setUsers(res.data.users);
-    } catch (err) {
-      console.error(err);
-    }
+      const { data, error } = await supabase.from('users').select('*').order('created_at', { ascending: false });
+      if (error) throw error;
+      setUsers(data || []);
+    } catch (err) { console.error(err.message); }
   };
 
   const updateRole = async (userId, newRole) => {
     try {
-      const res = await api.patch(`/auth/users/${userId}/role`, { role: newRole });
-      if (res.data.success) {
-        alert('Role updated successfully!');
-        loadUsers();
-      }
-    } catch (err) {
-      alert('Failed to update role');
-    }
+      const { error } = await supabase.from('users').update({ role: newRole }).eq('id', userId);
+      if (error) throw error;
+      alert('Role updated successfully!');
+      loadUsers();
+    } catch (err) { alert('Failed to update role: ' + err.message); }
   };
 
   const toggleBan = async (userId) => {
     try {
-      const res = await api.patch(`/auth/users/${userId}/ban`);
-      if (res.data.success) {
-        loadUsers();
-      }
-    } catch (err) {
-      alert('Failed to toggle ban status');
-    }
+      const user = users.find(u => u.id === userId);
+      const { error } = await supabase.from('users').update({ is_banned: !user?.is_banned }).eq('id', userId);
+      if (error) throw error;
+      loadUsers();
+    } catch (err) { alert('Failed to toggle ban: ' + err.message); }
   };
 
   const loadCategories = async () => {
     try {
-      const res = await api.get('/menu/categories');
-      if (res.data.success) setCategories(res.data.categories);
-    } catch (err) {
-      console.error(err);
-    }
+      const { data, error } = await supabase.from('menu_items').select('category').order('category');
+      if (error) throw error;
+      const cats = [...new Set((data || []).map(i => i.category).filter(Boolean))].map(c => ({ name: c }));
+      setCategories(cats);
+    } catch (err) { console.error(err.message); }
   };
 
   const handleRenameCategory = async (oldName, newName) => {
     if (!newName || newName === oldName) return;
     try {
-      const res = await api.patch('/menu/categories/rename', { oldName, newName });
-      if (res.data.success) {
-        alert(`Category renamed: "${oldName}" → "${newName}" (${res.data.updated} items updated)`);
-        loadCategories();
-      }
-    } catch (err) {
-      alert('Failed to rename category');
-    }
+      const { error } = await supabase.from('menu_items').update({ category: newName }).eq('category', oldName);
+      if (error) throw error;
+      alert(`Category renamed: "${oldName}" → "${newName}"`);
+      loadCategories();
+    } catch (err) { alert('Failed to rename category: ' + err.message); }
   };
 
   const loadCanteenStats = async () => {
     try {
-      let users = [], stats = {}, cats = [];
-
-      try { const r = await api.get('/auth/users'); users = r.data.users || []; } catch(e) {}
-      try { 
-        const r = await api.get('/analytics/dashboard'); 
-        stats = r.data.stats || r.data || {}; 
-      } catch(e) {}
-      try { const r = await api.get('/menu/categories'); cats = r.data.categories || []; } catch(e) {}
-
+      const [usersRes, ordersRes, menuRes] = await Promise.all([
+        supabase.from('users').select('role, is_banned'),
+        supabase.from('orders').select('order_status, total_amount'),
+        supabase.from('menu_items').select('item_id'),
+      ]);
+      const usrs = usersRes.data || [];
+      const ords = ordersRes.data || [];
+      const menu = menuRes.data || [];
+      const revenue = ords.filter(o => o.order_status === 'COLLECTED').reduce((s, o) => s + parseFloat(o.total_amount || 0), 0);
       setCanteenStats({
-        totalUsers: users.length,
-        customers: users.filter(u => u.role === 'CUSTOMER').length,
-        staff: users.filter(u => u.role === 'STAFF').length,
-        managers: users.filter(u => u.role === 'MANAGER').length,
-        admins: users.filter(u => u.role === 'ADMIN').length,
-        suspended: users.filter(u => u.account_status === 'SUSPENDED').length,
-        totalRevenue: stats.total_sales || 0,
-        totalOrders: stats.total_orders || 0,
-        activeOrders: stats.active_orders || 0,
-        completedOrders: stats.completed || 0,
-        totalCategories: cats.length,
-        totalMenuItems: cats.reduce((sum, c) => sum + c.item_count, 0),
+        totalUsers: usrs.length,
+        customers: usrs.filter(u => u.role === 'CUSTOMER').length,
+        staff: usrs.filter(u => u.role === 'STAFF').length,
+        managers: usrs.filter(u => u.role === 'MANAGER').length,
+        admins: usrs.filter(u => u.role === 'ADMIN').length,
+        suspended: usrs.filter(u => u.is_banned).length,
+        totalRevenue: revenue.toFixed(2),
+        totalOrders: ords.length,
+        activeOrders: ords.filter(o => ['PLACED','ACCEPTED','PREPARING','READY'].includes(o.order_status)).length,
+        completedOrders: ords.filter(o => o.order_status === 'COLLECTED').length,
+        totalMenuItems: menu.length,
       });
     } catch (err) {
-      console.error(err);
-      setCanteenStats({ totalUsers: 0, customers: 0, staff: 0, managers: 0, admins: 0, suspended: 0, totalRevenue: 0, totalOrders: 0, activeOrders: 0, completedOrders: 0, totalCategories: 0, totalMenuItems: 0 });
+      console.error(err.message);
+      setCanteenStats({ totalUsers: 0, customers: 0, staff: 0, managers: 0, admins: 0, suspended: 0, totalRevenue: 0, totalOrders: 0, activeOrders: 0, completedOrders: 0, totalMenuItems: 0 });
     }
   };
 
   const loadLogs = async () => {
     try {
-      const res = await api.get('/analytics/logs');
-      if (res.data.success) setActivityLogs(res.data.logs);
+      const { data, error } = await supabase
+        .from('activity_logs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      setActivityLogs(data || []);
     } catch (err) {
-      console.error('Failed to load logs', err);
+      console.error('Failed to load logs', err.message);
     }
   };
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ChefHat, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
-import api from '../utils/api';
+import supabase from '../utils/supabase';
 
 export default function KitchenPortal() {
   const [queue, setQueue] = useState({ PREPARING: [], ACCEPTED: [], PLACED: [], READY: [], DELAYED: [] });
@@ -16,10 +16,11 @@ export default function KitchenPortal() {
 
   const loadMenu = async () => {
     try {
-      const res = await api.get('/menu');
-      if (res.data.success) setMenuItems(res.data.items);
+      const { data, error } = await supabase.from('menu_items').select('*').order('category');
+      if (error) throw error;
+      setMenuItems(data || []);
     } catch (err) {
-      console.error(err);
+      console.error('loadMenu error:', err.message);
     }
   };
 
@@ -30,43 +31,48 @@ export default function KitchenPortal() {
   const toggleItemStatus = async (item) => {
     const newStatus = item.status === 'AVAILABLE' ? 'SOLD_OUT' : 'AVAILABLE';
     try {
-      const res = await api.patch(`/menu/${item.item_id}/status`, { status: newStatus });
-      if (res.data.success) {
-        setMenuItems(menuItems.map(m => m.item_id === item.item_id ? { ...m, status: newStatus } : m));
-      }
+      const { error } = await supabase
+        .from('menu_items')
+        .update({ status: newStatus })
+        .eq('item_id', item.item_id);
+      if (error) throw error;
+      setMenuItems(menuItems.map(m => m.item_id === item.item_id ? { ...m, status: newStatus } : m));
     } catch (err) {
-      alert('Failed to update item status');
+      alert('Failed to update item status: ' + err.message);
     }
   };
 
   const loadQueue = async () => {
     try {
-      const res = await api.get('/orders/queue/live');
-      if (res.data.success) {
-        // Group by status
-        const grouped = { PREPARING: [], ACCEPTED: [], PLACED: [], READY: [], DELAYED: [] };
-        // Combine active and scheduled if you want to see them all, but active is what matters for the queue.
-        const ordersToDisplay = [...(res.data.active || []), ...(res.data.scheduled || [])];
-        ordersToDisplay.forEach(item => {
-          if (grouped[item.order_status]) {
-            grouped[item.order_status].push(item);
-          } else if (item.order_status === 'DELAYED') {
-             grouped['DELAYED'].push(item);
-          }
-        });
-        setQueue(grouped);
-      }
+      const { data, error } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          order_items (item_name, quantity, price)
+        `)
+        .in('order_status', ['PLACED', 'ACCEPTED', 'PREPARING', 'READY', 'DELAYED'])
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      const grouped = { PREPARING: [], ACCEPTED: [], PLACED: [], READY: [], DELAYED: [] };
+      (data || []).forEach(item => {
+        if (grouped[item.order_status]) grouped[item.order_status].push(item);
+      });
+      setQueue(grouped);
     } catch (err) {
-      console.error(err);
+      console.error('loadQueue error:', err.message);
     }
   };
 
   const updateStatus = async (orderId, newStatus) => {
     try {
-      await api.patch(`/orders/${orderId}/status`, { status: newStatus });
+      const { error } = await supabase
+        .from('orders')
+        .update({ order_status: newStatus })
+        .eq('order_id', orderId);
+      if (error) throw error;
       loadQueue();
     } catch (err) {
-      alert('Failed to update status: ' + (err.response?.data?.error || err.message));
+      alert('Failed to update status: ' + err.message);
     }
   };
 
@@ -74,9 +80,22 @@ export default function KitchenPortal() {
     e.preventDefault();
     if (!verifyTokenStr.trim()) return;
     try {
-      const res = await api.post('/orders/verify-token', { token_number: verifyTokenStr });
-      if (res.data.success) {
-        alert(res.data.message);
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('token_number', verifyTokenStr.toUpperCase())
+        .eq('order_status', 'READY')
+        .single();
+      if (error || !data) {
+        alert('Token not found or order is not READY for collection.');
+        return;
+      }
+      const { error: updateError } = await supabase
+        .from('orders')
+        .update({ order_status: 'COLLECTED', is_collected: true, collected_at: new Date().toISOString() })
+        .eq('order_id', data.order_id);
+      if (updateError) throw updateError;
+      alert(`✅ Token ${verifyTokenStr.toUpperCase()} verified! Order marked as COLLECTED.`);
         setVerifyTokenStr('');
         loadQueue();
       }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { LayoutDashboard, TrendingUp, Clock, AlertTriangle, PackageOpen, Users, Banknote, Settings, Coffee, Plus, Trash2 } from 'lucide-react';
-import api from '../utils/api';
+import supabase from '../utils/supabase';
 
 export default function ManagerDashboard() {
   const [stats, setStats] = useState(null);
@@ -18,20 +18,62 @@ export default function ManagerDashboard() {
 
   const loadStats = async () => {
     try {
-      const res = await api.get('/analytics/dashboard');
-      if (res.data.success) setStats(res.data.stats);
+      // Build summary stats directly from Supabase
+      const today = new Date().toISOString().split('T')[0];
+
+      const [ordersRes, menuRes, revenueRes] = await Promise.all([
+        supabase.from('orders').select('order_status, total_amount, created_at'),
+        supabase.from('menu_items').select('item_id, is_available'),
+        supabase.from('orders').select('total_amount').gte('created_at', today).eq('order_status', 'COLLECTED'),
+      ]);
+
+      const orders = ordersRes.data || [];
+      const todayOrders = orders.filter(o => o.created_at?.startsWith(today));
+      const revenue = (revenueRes.data || []).reduce((s, o) => s + parseFloat(o.total_amount || 0), 0);
+      const menuCount = menuRes.data?.length || 0;
+      const availableMenu = (menuRes.data || []).filter(m => m.is_available).length;
+
+      setStats({
+        total_orders_today: todayOrders.length,
+        revenue_today: revenue.toFixed(2),
+        menu_items_total: menuCount,
+        menu_items_available: availableMenu,
+        orders_placed: orders.filter(o => o.order_status === 'PLACED').length,
+        orders_preparing: orders.filter(o => o.order_status === 'PREPARING').length,
+        orders_ready: orders.filter(o => o.order_status === 'READY').length,
+        orders_collected: orders.filter(o => o.order_status === 'COLLECTED').length,
+      });
     } catch (err) {
-      console.error(err);
+      console.error('loadStats error:', err.message);
     }
   };
 
   const generateAiInsights = async () => {
     setLoadingAi(true);
     try {
-      const res = await api.get('/intelligence/ai-insights');
-      if (res.data.success) setAiInsights(res.data.insights);
+      // Fetch recent orders for AI analysis
+      const { data: orders } = await supabase
+        .from('orders')
+        .select('*, order_items(item_name, quantity)')
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      // Basic pattern insight (no backend needed)
+      const itemCounts = {};
+      (orders || []).forEach(o => {
+        (o.order_items || []).forEach(i => {
+          itemCounts[i.item_name] = (itemCounts[i.item_name] || 0) + i.quantity;
+        });
+      });
+      const sorted = Object.entries(itemCounts).sort((a, b) => b[1] - a[1]);
+      const topItems = sorted.slice(0, 3).map(([name, qty]) => `${name} (×${qty})`).join(', ');
+
+      setAiInsights({
+        summary: `Based on the last ${orders?.length || 0} orders, your top-selling items are: ${topItems || 'N/A'}. Consider restocking these items and promoting slower-moving options.`,
+        top_items: sorted.slice(0, 5).map(([name, qty]) => ({ name, qty })),
+      });
     } catch (err) {
-      alert('Failed to generate insights');
+      alert('Failed to generate insights: ' + err.message);
     } finally {
       setLoadingAi(false);
     }
@@ -49,25 +91,24 @@ export default function ManagerDashboard() {
       item_name: nameInput,
       category: catInput,
       price: parseFloat(priceInput),
-      status: statusInput
+      status: statusInput,
+      is_available: statusInput === 'AVAILABLE',
     };
 
     try {
       if (item.item_id.startsWith('new_')) {
-        const res = await api.post('/menu', payload);
-        if (res.data.success) {
-          setMenuItems(menuItems.map(m => m.item_id === item.item_id ? res.data.item : m));
-          alert('Item added successfully!');
-        }
+        const { data, error } = await supabase.from('menu_items').insert(payload).select().single();
+        if (error) throw error;
+        setMenuItems(menuItems.map(m => m.item_id === item.item_id ? data : m));
+        alert('Item added successfully!');
       } else {
-        const res = await api.put(`/menu/${item.item_id}`, payload);
-        if (res.data.success) {
-          setMenuItems(menuItems.map(m => m.item_id === item.item_id ? res.data.item : m));
-          alert('Item updated successfully!');
-        }
+        const { data, error } = await supabase.from('menu_items').update(payload).eq('item_id', item.item_id).select().single();
+        if (error) throw error;
+        setMenuItems(menuItems.map(m => m.item_id === item.item_id ? data : m));
+        alert('Item updated successfully!');
       }
     } catch (err) {
-      alert('Failed to save menu item');
+      alert('Failed to save menu item: ' + err.message);
     }
   };
 
@@ -76,43 +117,41 @@ export default function ManagerDashboard() {
       setMenuItems(menuItems.filter(m => m.item_id !== item_id));
       return;
     }
-    
     if (!confirm('Are you sure you want to delete this item?')) return;
-    
     try {
-      const res = await api.delete(`/menu/${item_id}`);
-      if (res.data.success) {
-        if (res.data.message) {
-          // It was a soft delete, just change status in UI
-          setMenuItems(menuItems.map(m => m.item_id === item_id ? { ...m, status: 'UNAVAILABLE' } : m));
-          alert(res.data.message);
-        } else {
-          setMenuItems(menuItems.filter(m => m.item_id !== item_id));
-          alert('Item deleted permanently!');
-        }
-      }
+      const { error } = await supabase.from('menu_items').delete().eq('item_id', item_id);
+      if (error) throw error;
+      setMenuItems(menuItems.filter(m => m.item_id !== item_id));
+      alert('Item deleted!');
     } catch (err) {
-      alert('Failed to delete item');
+      alert('Failed to delete item: ' + err.message);
     }
   };
 
   const loadStaffUsers = async () => {
     try {
-      const res = await api.get('/auth/users');
-      if (res.data.success) {
-        setStaffUsers(res.data.users.filter(u => ['STAFF', 'MANAGER'].includes(u.role)));
-      }
+      const { data, error } = await supabase
+        .from('users')
+        .select('*')
+        .in('role', ['STAFF', 'MANAGER']);
+      if (error) throw error;
+      setStaffUsers(data || []);
     } catch (err) {
-      console.error(err);
+      console.error('loadStaffUsers error:', err.message);
     }
   };
 
   const toggleStaffBan = async (userId) => {
     try {
-      const res = await api.patch(`/auth/users/${userId}/ban`);
-      if (res.data.success) loadStaffUsers();
+      const user = staffUsers.find(u => u.id === userId);
+      const { error } = await supabase
+        .from('users')
+        .update({ is_banned: !user?.is_banned })
+        .eq('id', userId);
+      if (error) throw error;
+      loadStaffUsers();
     } catch (err) {
-      alert('Failed to toggle staff ban status');
+      alert('Failed to toggle staff ban status: ' + err.message);
     }
   };
 

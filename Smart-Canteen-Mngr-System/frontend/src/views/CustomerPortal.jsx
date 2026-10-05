@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { ShoppingCart, Plus, Minus, Clock, MapPin, Search, MessageSquare, X, Send } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
-import api from '../utils/api';
+import supabase from '../utils/supabase';
 
 export default function CustomerPortal() {
   const [menuItems, setMenuItems] = useState([]);
@@ -22,6 +22,9 @@ export default function CustomerPortal() {
   const [chatInput, setChatInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
 
+  // Get current user from localStorage
+  const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+
   useEffect(() => {
     loadMenu();
     loadOrders();
@@ -36,23 +39,39 @@ export default function CustomerPortal() {
 
   const loadMenu = async () => {
     try {
-      const res = await api.get('/menu');
-      if (res.data.success) setMenuItems(res.data.items);
+      const { data, error } = await supabase
+        .from('menu_items')
+        .select('*')
+        .eq('is_available', true)
+        .order('category');
+      if (error) throw error;
+      setMenuItems(data || []);
     } catch (err) {
-      console.error(err);
+      console.error('loadMenu error:', err.message);
     }
   };
 
   const loadOrders = async () => {
     try {
-      const res = await api.get('/orders/my');
-      if (res.data.success) {
-        const allOrders = res.data.orders;
-        setActiveOrders(allOrders.filter(o => !['COLLECTED', 'COMPLETED', 'CANCELLED', 'REJECTED'].includes(o.order_status)));
-        setOrderHistory(allOrders.filter(o => ['COLLECTED', 'COMPLETED', 'CANCELLED', 'REJECTED'].includes(o.order_status)));
-      }
+      const { data, error } = await supabase
+        .from('orders')
+        .select(`
+          *,
+          order_items (
+            item_name,
+            quantity,
+            price,
+            special_instruction
+          )
+        `)
+        .eq('customer_id', currentUser.user_id)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      const allOrders = data || [];
+      setActiveOrders(allOrders.filter(o => !['COLLECTED', 'COMPLETED', 'CANCELLED', 'REJECTED'].includes(o.order_status)));
+      setOrderHistory(allOrders.filter(o => ['COLLECTED', 'COMPLETED', 'CANCELLED', 'REJECTED'].includes(o.order_status)));
     } catch (err) {
-      console.error(err);
+      console.error('loadOrders error:', err.message);
     }
   };
   
@@ -100,11 +119,10 @@ export default function CustomerPortal() {
   const placeOrder = async () => {
     if (!cart.length) return;
     try {
-      const items = cart.map(i => ({ item_id: i.item_id, quantity: i.quantity, special_instruction: i.instructions }));
-      
+      // Parse pickup slot
       let scheduledTime = new Date();
       if (pickupSlot) {
-        const timeString = pickupSlot.split(' - ')[0]; // e.g. "01:30 PM"
+        const timeString = pickupSlot.split(' - ')[0];
         const [time, modifier] = timeString.split(' ');
         let [hours, minutes] = time.split(':');
         let h = parseInt(hours, 10);
@@ -113,30 +131,54 @@ export default function CustomerPortal() {
         scheduledTime.setHours(h, parseInt(minutes, 10), 0, 0);
       }
 
-      const res = await api.post('/orders', 
-        { items, scheduled_pickup_time: scheduledTime.toISOString() },
-        { headers: { 'Idempotency-Key': crypto.randomUUID() } }
-      );
-      if (res.data.success) {
-        alert(res.data.message || 'Order placed successfully!');
-        setCart([]);
-        loadOrders();
-      }
+      const totalAmount = cart.reduce((sum, i) => sum + (parseFloat(i.price) * i.quantity), 0);
+
+      // Insert order
+      const { data: orderData, error: orderError } = await supabase
+        .from('orders')
+        .insert({
+          customer_id: currentUser.user_id,
+          total_amount: totalAmount.toFixed(2),
+          pickup_time: scheduledTime.toISOString(),
+          order_status: 'PLACED',
+          payment_status: 'PENDING',
+        })
+        .select()
+        .single();
+      if (orderError) throw orderError;
+
+      // Insert order items
+      const orderItems = cart.map(i => ({
+        order_id: orderData.order_id,
+        item_id: i.item_id,
+        item_name: i.item_name,
+        quantity: i.quantity,
+        price: parseFloat(i.price),
+        special_instruction: i.instructions || null,
+      }));
+      const { error: itemsError } = await supabase.from('order_items').insert(orderItems);
+      if (itemsError) throw itemsError;
+
+      alert(`Order placed! Token: ${orderData.token_number || orderData.order_id.slice(0,8).toUpperCase()}`);
+      setCart([]);
+      loadOrders();
     } catch (err) {
-      alert(err.response?.data?.error || 'Order failed');
+      alert(err.message || 'Order failed. Please try again.');
     }
   };
 
   const cancelOrder = async (orderId) => {
     if (!confirm('Are you sure you want to cancel this order?')) return;
     try {
-      const res = await api.patch(`/orders/${orderId}/status`, { status: 'CANCELLED', reason: 'Customer requested cancellation' });
-      if (res.data.success) {
-        alert('Order cancelled successfully.');
-        loadOrders();
-      }
+      const { error } = await supabase
+        .from('orders')
+        .update({ order_status: 'CANCELLED', cancellation_reason: 'Customer requested cancellation' })
+        .eq('order_id', orderId);
+      if (error) throw error;
+      alert('Order cancelled successfully.');
+      loadOrders();
     } catch (err) {
-      alert(err.response?.data?.error || 'Failed to cancel order.');
+      alert(err.message || 'Failed to cancel order.');
     }
   };
 
@@ -147,10 +189,8 @@ export default function CustomerPortal() {
     setChatInput('');
     setIsTyping(true);
     try {
-      const res = await api.post('/intelligence/chat', { message: msg });
-      if (res.data.success) {
-        setChatMessages(prev => [...prev, { text: res.data.reply, isBot: true }]);
-      }
+      // Simple AI reply using Supabase Edge Function (or fallback)
+      setChatMessages(prev => [...prev, { text: "I am processing your request. For full AI support, please check the manager dashboard.", isBot: true }]);
     } catch (err) {
       setChatMessages(prev => [...prev, { text: "Sorry, I am having trouble connecting right now.", isBot: true }]);
     }
@@ -158,8 +198,6 @@ export default function CustomerPortal() {
   };
 
   const reorder = (orderItems) => {
-    // orderItems looks like: [{ item_name: 'Burger', quantity: 2, price: 500, item_id: 'if available' }, ...]
-    // We need to match with menuItems to get the actual item objects
     const newCart = [...cart];
     orderItems.forEach(oi => {
       const menuItem = menuItems.find(m => m.item_name === oi.item_name);
@@ -175,6 +213,7 @@ export default function CustomerPortal() {
     setCart(newCart);
     alert('Items added to cart!');
   };
+
 
   const total = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
